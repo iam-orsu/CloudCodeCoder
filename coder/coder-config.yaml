@@ -1,0 +1,18 @@
+# ==========================================
+# Coder Configuration
+# ==========================================
+# This file documents the Coder environment config.
+# Actual configuration is passed via environment variables
+# in docker-compose.yml.
+#
+# Key Settings:
+#   CODER_PG_CONNECTION_URL  - PostgreSQL connection string
+#   CODER_HTTP_ADDRESS       - Listen address (0.0.0.0:7080)
+#   CODER_ACCESS_URL         - Public URL for the Coder dashboard
+#   CODER_TELEMETRY_ENABLE   - Disable telemetry
+#
+# After first startup:
+#   1. Visit http://your-server:7080 to create admin account
+#   2. Generate API token: Settings → Tokens → Create
+#   3. Set CODER_API_TOKEN in .env
+#   4. Create Azure workspace template (see README.md)

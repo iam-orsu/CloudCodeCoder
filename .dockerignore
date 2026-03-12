@@ -1,0 +1,13 @@
+node_modules
+.next
+.git
+.gitignore
+*.md
+docker-compose*.yml
+Dockerfile
+.env
+.env.local
+.dockerignore
+coder/
+database/
+reverse-proxy/

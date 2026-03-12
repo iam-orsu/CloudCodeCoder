@@ -1,0 +1,121 @@
+# ==========================================
+# Cloud Code — Docker Compose Stack
+# ==========================================
+# Usage:  docker compose up -d
+# Stop:   docker compose down
+# Logs:   docker compose logs -f
+# ==========================================
+# Ports used: 3080 (web), 7080 (coder proxy), 9090 (traefik dashboard)
+# Change these in the ports section if they conflict.
+
+services:
+  # ---- Next.js Web Application ----
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: cloudcode-web
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      - DATABASE_URL=postgresql://cloudcode:${DB_PASSWORD:-changeme}@db:5432/cloudcode?schema=nextjs
+      - CODER_URL=http://coder:7080
+      - REDIS_URL=redis://redis:6379
+    ports:
+      - "${WEB_PORT:-3080}:3000"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - cloudcode-net
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  # ---- PostgreSQL Database ----
+  db:
+    image: postgres:16-alpine
+    container_name: cloudcode-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: cloudcode
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-changeme}
+      POSTGRES_DB: cloudcode
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cloudcode -d cloudcode"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    networks:
+      - cloudcode-net
+    # DB is NOT exposed to host — only accessible within Docker network
+
+  # ---- Coder Control Plane ----
+  coder:
+    image: ghcr.io/coder/coder:latest
+    container_name: cloudcode-coder
+    restart: unless-stopped
+    environment:
+      CODER_PG_CONNECTION_URL: "postgresql://cloudcode:${DB_PASSWORD:-changeme}@db:5432/cloudcode?sslmode=disable"
+      CODER_HTTP_ADDRESS: "0.0.0.0:7080"
+      CODER_ACCESS_URL: "${CODER_ACCESS_URL:-http://localhost:7080}"
+      CODER_TELEMETRY_ENABLE: "false"
+      CODER_WILDCARD_ACCESS_URL: ""
+      # Azure credentials for Terraform azurerm provider
+      ARM_CLIENT_ID: "${AZURE_CLIENT_ID}"
+      ARM_CLIENT_SECRET: "${AZURE_CLIENT_SECRET}"
+      ARM_SUBSCRIPTION_ID: "${AZURE_SUBSCRIPTION_ID}"
+      ARM_TENANT_ID: "${AZURE_TENANT_ID}"
+    ports:
+      - "${CODER_PORT:-7080}:7080"
+    volumes:
+      - coder-data:/home/coder/.config
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:7080/healthz"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    networks:
+      - cloudcode-net
+
+  # ---- Redis ----
+  redis:
+    image: redis:7-alpine
+    container_name: cloudcode-redis
+    restart: unless-stopped
+    command: redis-server --maxmemory 128mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - cloudcode-net
+    # Redis is NOT exposed to host — only accessible within Docker network
+
+volumes:
+  pgdata:
+    driver: local
+  coder-data:
+    driver: local
+  redis-data:
+    driver: local
+
+networks:
+  cloudcode-net:
+    driver: bridge
