@@ -62,6 +62,11 @@ async function coderFetch(
     },
   });
 
+  if (!res.ok) {
+    const errorText = await res.text();
+    throw new Error(`Coder API error (${res.status}): ${errorText}`);
+  }
+
   return res;
 }
 

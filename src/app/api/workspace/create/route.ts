@@ -45,10 +45,10 @@ export async function POST() {
     });
 
     return NextResponse.json({ workspace }, { status: 201 });
-  } catch (error) {
-    console.error("Workspace create error:", error);
+  } catch (error: any) {
+    console.error("Workspace create error:", error.message || error);
     return NextResponse.json(
-      { error: "Failed to create workspace" },
+      { error: "Failed to create workspace", details: error.message },
       { status: 500 }
     );
   }
