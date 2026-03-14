@@ -8,5 +8,8 @@
 -- Enable UUID generation
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
--- Coder will create its own tables automatically.
--- The Next.js app uses Prisma for its tables.
+-- Create a dedicated schema for Prisma so it doesn't drop Coder's tables
+CREATE SCHEMA IF NOT EXISTS nextjs;
+
+-- Coder will create its own tables automatically in the public schema.
+-- The Next.js app uses Prisma for its tables in the nextjs schema.

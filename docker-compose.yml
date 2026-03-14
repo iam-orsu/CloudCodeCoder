@@ -67,7 +67,7 @@ services:
     container_name: cloudcode-v2-coder
     restart: unless-stopped
     environment:
-      CODER_PG_CONNECTION_URL: "${DATABASE_URL}"
+      CODER_PG_CONNECTION_URL: "postgresql://cloudcode:${DB_PASSWORD:-changeme}@db:5432/cloudcode?sslmode=disable"
       CODER_HTTP_ADDRESS: "0.0.0.0:7080"
       CODER_ACCESS_URL: "${CODER_ACCESS_URL}"
       CODER_TELEMETRY_ENABLE: "false"
