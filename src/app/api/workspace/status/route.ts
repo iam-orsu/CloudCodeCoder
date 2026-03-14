@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
-import { getWorkspace, mapCoderStatus } from "@/lib/coder";
+import { getWorkspace, mapCoderStatus, CoderApiError } from "@/lib/coder";
 
 export async function GET() {
   try {
@@ -12,7 +12,7 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const userId = (session.user as any).id;
+    const userId = session.user.id;
 
     if (!userId) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
@@ -54,8 +54,14 @@ export async function GET() {
       // Return DB status if Coder is unreachable
       return NextResponse.json({ workspace: dbWorkspace });
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error("Workspace status error:", error);
+    if (error instanceof CoderApiError) {
+      return NextResponse.json(
+        { error: "Failed to get workspace status", details: error.details },
+        { status: error.status >= 400 && error.status < 600 ? error.status : 500 }
+      );
+    }
     return NextResponse.json(
       { error: "Failed to get workspace status" },
       { status: 500 }

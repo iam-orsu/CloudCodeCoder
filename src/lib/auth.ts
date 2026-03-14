@@ -21,8 +21,9 @@ export const authOptions: NextAuthOptions = {
     async signIn({ user, profile }) {
       try {
         // Upsert user in database
+        const githubId = String(profile?.id || user.id);
         await prisma.user.upsert({
-          where: { githubId: String((profile as any)?.id || user.id) },
+          where: { githubId },
           update: {
             name: user.name || "",
             email: user.email || "",
@@ -30,7 +31,7 @@ export const authOptions: NextAuthOptions = {
           create: {
             email: user.email || "",
             name: user.name || "",
-            githubId: String((profile as any)?.id || user.id),
+            githubId,
           },
         });
         return true;
@@ -40,21 +41,21 @@ export const authOptions: NextAuthOptions = {
       }
     },
     async jwt({ token, profile }) {
-      if (profile) {
-        token.githubId = String((profile as any)?.id);
+      if (profile?.id) {
+        token.githubId = String(profile.id);
       }
       return token;
     },
     async session({ session, token }) {
       if (session.user) {
-        (session.user as any).githubId = token.githubId;
+        session.user.githubId = token.githubId;
 
         // Fetch internal user ID
         const dbUser = await prisma.user.findUnique({
-          where: { githubId: token.githubId as string },
+          where: { githubId: token.githubId },
         });
         if (dbUser) {
-          (session.user as any).id = dbUser.id;
+          session.user.id = dbUser.id;
         }
       }
       return session;

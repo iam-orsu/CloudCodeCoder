@@ -322,7 +322,7 @@ export default function DashboardPage() {
                 {workspace.status === "RUNNING" && (
                   <>
                     <a
-                      href={`${process.env.NEXT_PUBLIC_CODER_URL || "http://localhost:7080"}/@me/${workspaceName || workspace.coderWorkspaceId}`}
+                      href={`${process.env.NEXT_PUBLIC_CODER_URL}/@me/${workspaceName || workspace.coderWorkspaceId}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="saas-button-primary"

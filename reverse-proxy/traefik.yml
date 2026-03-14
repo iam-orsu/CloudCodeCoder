@@ -18,11 +18,5 @@ providers:
     exposedByDefault: false
     network: cloudcode-net
 
-# Uncomment below for Let's Encrypt HTTPS
-# certificatesResolvers:
-#   letsencrypt:
-#     acme:
-#       email: your-email@example.com
-#       storage: /letsencrypt/acme.json
-#       httpChallenge:
-#         entryPoint: web
+# Note: Let's Encrypt requires a valid domain name. 
+# Since this deployment runs on a raw IP address, we do not configure ACME/Let's Encrypt.

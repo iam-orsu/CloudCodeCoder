@@ -29,6 +29,8 @@ RUN npx prisma generate
 COPY . .
 
 # Build Next.js
+ARG NEXT_PUBLIC_CODER_URL
+ENV NEXT_PUBLIC_CODER_URL=$NEXT_PUBLIC_CODER_URL
 RUN npm run build
 
 # Stage 3: Production runner
@@ -38,6 +40,9 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV PORT=3000
+
+ARG NEXT_PUBLIC_CODER_URL
+ENV NEXT_PUBLIC_CODER_URL=$NEXT_PUBLIC_CODER_URL
 
 RUN apk add --no-cache openssl wget
 

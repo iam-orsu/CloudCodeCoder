@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
-import { createWorkspace, mapCoderStatus } from "@/lib/coder";
+import { createWorkspace, mapCoderStatus, CoderApiError } from "@/lib/coder";
 
 export async function POST() {
   try {
@@ -12,7 +12,7 @@ export async function POST() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const userId = (session.user as any).id;
+    const userId = session.user.id;
 
     if (!userId) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
@@ -47,6 +47,12 @@ export async function POST() {
     return NextResponse.json({ workspace }, { status: 201 });
   } catch (error: any) {
     console.error("Workspace create error:", error.message || error);
+    if (error instanceof CoderApiError) {
+      return NextResponse.json(
+        { error: "Failed to create workspace", details: error.details },
+        { status: error.status >= 400 && error.status < 600 ? error.status : 500 }
+      );
+    }
     return NextResponse.json(
       { error: "Failed to create workspace", details: error.message },
       { status: 500 }

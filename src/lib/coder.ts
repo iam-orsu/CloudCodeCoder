@@ -12,6 +12,19 @@ const CODER_API_TOKEN = process.env.CODER_API_TOKEN || "";
 const CODER_ORG_ID = process.env.CODER_ORG_ID || "default";
 const CODER_TEMPLATE_NAME = process.env.CODER_TEMPLATE_NAME || "azure-linux";
 
+export class CoderApiError extends Error {
+  public status: number;
+  public details: string;
+
+  constructor(status: number, message: string, details: string) {
+    super(message);
+    this.name = "CoderApiError";
+    this.status = status;
+    this.details = details;
+    Object.setPrototypeOf(this, CoderApiError.prototype);
+  }
+}
+
 interface CoderWorkspace {
   id: string;
   name: string;
@@ -64,7 +77,7 @@ async function coderFetch(
 
   if (!res.ok) {
     const errorText = await res.text();
-    throw new Error(`Coder API error (${res.status}): ${errorText}`);
+    throw new CoderApiError(res.status, `Coder API error (${res.status})`, errorText);
   }
 
   return res;
@@ -79,9 +92,7 @@ async function getTemplateId(): Promise<string> {
   );
 
   if (!res.ok) {
-    throw new Error(
-      `Failed to get template: ${res.status} ${await res.text()}`
-    );
+    throw new CoderApiError(res.status, "Failed to get template", await res.text());
   }
 
   const template: CoderTemplate = await res.json();
@@ -112,8 +123,7 @@ export async function createWorkspace(
   );
 
   if (!res.ok) {
-    const errText = await res.text();
-    throw new Error(`Failed to create workspace: ${res.status} ${errText}`);
+    throw new CoderApiError(res.status, "Failed to create workspace", await res.text());
   }
 
   return res.json();
@@ -128,9 +138,7 @@ export async function getWorkspace(
   const res = await coderFetch(`/workspaces/${workspaceId}`);
 
   if (!res.ok) {
-    throw new Error(
-      `Failed to get workspace: ${res.status} ${await res.text()}`
-    );
+    throw new CoderApiError(res.status, "Failed to get workspace", await res.text());
   }
 
   return res.json();
@@ -153,9 +161,7 @@ export async function startWorkspace(workspaceId: string): Promise<void> {
   );
 
   if (!res.ok) {
-    throw new Error(
-      `Failed to start workspace: ${res.status} ${await res.text()}`
-    );
+    throw new CoderApiError(res.status, "Failed to start workspace", await res.text());
   }
 }
 
@@ -174,9 +180,7 @@ export async function stopWorkspace(workspaceId: string): Promise<void> {
   );
 
   if (!res.ok) {
-    throw new Error(
-      `Failed to stop workspace: ${res.status} ${await res.text()}`
-    );
+    throw new CoderApiError(res.status, "Failed to stop workspace", await res.text());
   }
 }
 

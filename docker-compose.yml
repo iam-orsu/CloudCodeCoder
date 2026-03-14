@@ -14,11 +14,13 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        - NEXT_PUBLIC_CODER_URL=${NEXT_PUBLIC_CODER_URL}
     container_name: cloudcode-web
     restart: unless-stopped
     env_file: .env
     environment:
-      - DATABASE_URL=postgresql://cloudcode:${DB_PASSWORD:-changeme}@db:5432/cloudcode?schema=nextjs
+      - DATABASE_URL=${DATABASE_URL}
       - CODER_URL=http://coder:7080
       - REDIS_URL=redis://redis:6379
     ports:
@@ -65,9 +67,9 @@ services:
     container_name: cloudcode-coder
     restart: unless-stopped
     environment:
-      CODER_PG_CONNECTION_URL: "postgresql://cloudcode:${DB_PASSWORD:-changeme}@db:5432/cloudcode?sslmode=disable"
+      CODER_PG_CONNECTION_URL: "${DATABASE_URL}"
       CODER_HTTP_ADDRESS: "0.0.0.0:7080"
-      CODER_ACCESS_URL: "${CODER_ACCESS_URL:-http://localhost:7080}"
+      CODER_ACCESS_URL: "${CODER_ACCESS_URL}"
       CODER_TELEMETRY_ENABLE: "false"
       CODER_WILDCARD_ACCESS_URL: ""
       # Azure credentials for Terraform azurerm provider
