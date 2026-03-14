@@ -81,9 +81,55 @@ Cloud Code uses GitHub to log you in. You need to tell GitHub about your new VPS
 
 ---
 
-## ⚙️ Step 4: Configure Environment Variables
+## ☁️ Step 4: Generate Azure Credentials
 
-Now we need to pass those GitHub secrets and your VPS IP into Cloud Code. 
+Cloud Code uses Azure to spin up the actual Linux Virtual Machines for your workspaces. You need the Azure CLI to generate the four required credentials for your `.env` file.
+
+1.  If you don't have the Azure CLI installed on your local machine, [install it here](https://learn.microsoft.com/en-us/cli/azure/install-azure-cli).
+2.  Open a terminal **on your personal computer** (not the VPS) and log in to Azure:
+    ```bash
+    az login
+    ```
+3.  First, we need to get your **Subscription ID** and **Tenant ID**. Run this command:
+    ```bash
+    az account show
+    ```
+    The output will be a JSON block that looks something like this:
+    ```json
+    {
+      "environmentName": "AzureCloud",
+      "id": "11111111-2222-3333-4444-555555555555",
+      "name": "My Subscription",
+      "tenantId": "66666666-7777-8888-9999-000000000000",
+      "user": { ... }
+    }
+    ```
+    **Where to paste this in your `.env` file (Step 5):**
+    *   Copy the value of `"id"` and paste it into `AZURE_SUBSCRIPTION_ID="..."`
+    *   Copy the value of `"tenantId"` and paste it into `AZURE_TENANT_ID="..."`
+
+4.  Next, we need to create a Service Principal (a robot account) that gives Cloud Code permission to create VMs. Run this command, replacing `YOUR_SUBSCRIPTION_ID` with the `"id"` value you just copied:
+    ```bash
+    az ad sp create-for-rbac --name "CloudCodeProvisioner" --role Contributor --scopes /subscriptions/YOUR_SUBSCRIPTION_ID
+    ```
+    The output will be another JSON block that looks like this:
+    ```json
+    {
+      "appId": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+      "displayName": "CloudCodeProvisioner",
+      "password": "some-very-long-secret-password",
+      "tenant": "66666666-7777-8888-9999-000000000000"
+    }
+    ```
+    **Where to paste this in your `.env` file (Step 5):**
+    *   Copy the value of `"appId"` and paste it into `AZURE_CLIENT_ID="..."`
+    *   Copy the value of `"password"` and paste it into `AZURE_CLIENT_SECRET="..."` *(⚠️ this is the ONLY time Azure will show you this password!)*
+
+---
+
+## ⚙️ Step 5: Configure Environment Variables
+
+Now we need to pass the GitHub secrets, Azure keys, and your VPS IP into Cloud Code. 
 
 1.  Back in your VPS terminal (make sure you are inside the `CloudCodeCoder` folder), copy the template environment file:
     ```bash
@@ -93,22 +139,34 @@ Now we need to pass those GitHub secrets and your VPS IP into Cloud Code.
     ```bash
     nano .env
     ```
-3.  **Critical Edits**: Find and change the following lines. Do not use `< >` brackets, and make sure there are NO trailing slashes at the ends of URLs.
+3.  **Critical Edits**: Find the respective sections in the file and fill them in exactly like below. Make sure the variables stay in their respective spots as you scroll down. **Do NOT include a trailing slash at the ends of URLs.**
 
     ```env
-    # Change these to your actual VPS IP:
+    # ... (other settings) ...
+
+    # --- Public Host (Required for Production) ---
     NEXT_PUBLIC_APP_URL="http://YOUR_VPS_IP:3080"
     NEXT_PUBLIC_CODER_URL="http://YOUR_VPS_IP:7080"
 
-    # Paste your GitHub details from Step 3:
-    GITHUB_CLIENT_ID="your_client_id_here"
-    GITHUB_CLIENT_SECRET="your_client_secret_here"
+    # --- NextAuth ---
+    NEXTAUTH_URL="${NEXT_PUBLIC_APP_URL}"
+    NEXTAUTH_SECRET="your_random_secret"
+    GITHUB_CLIENT_ID="paste_your_github_client_id_here"
+    GITHUB_CLIENT_SECRET="paste_your_github_client_secret_here"
+
+    # ... (Coder and Database settings) ...
+
+    # --- Azure (used by Coder for VM provisioning) ---
+    AZURE_CLIENT_ID="paste_your_azure_appId_here"
+    AZURE_CLIENT_SECRET="paste_your_azure_password_here"
+    AZURE_SUBSCRIPTION_ID="paste_your_azure_subscription_id_here"
+    AZURE_TENANT_ID="paste_your_azure_tenant_id_here"
     ```
 4.  Save and exit `nano` (Press `Ctrl+O`, then `Enter` to save. Press `Ctrl+X` to exit).
 
 ---
 
-## 🚢 Step 5: Start the Application
+## 🚢 Step 6: Start the Application
 
 Everything is configured. It's time to boot up the platform!
 
@@ -126,13 +184,35 @@ Everything is configured. It's time to boot up the platform!
 
 ---
 
-## 🎉 Step 6: Access Your Platform
+## 🛠 Step 7: Configure Coder & Workspace Templates
+
+Before you can spin up workspaces in the dashboard, the Coder backend needs to be initialized with your Azure credentials and a template.
+
+1.  Navigate to the Coder backend in your browser: **`http://YOUR_VPS_IP:7080`**
+2.  Create your first admin account (username, email, and password).
+3.  Go to **Settings** (top right) > **Tokens** > **Create Token**. Copy this token.
+4.  Back in your VPS terminal, open your `.env` file again (`nano .env`) and set the token:
+    ```env
+    CODER_API_TOKEN="paste_your_token_here"
+    ```
+    Save and exit `nano`, then restart the web service so it picks up the token: 
+    ```bash
+    docker compose restart cloudcode-web
+    ```
+5.  In the Coder dashboard, go to **Templates** > **Create Template**.
+6.  Select the **Azure Linux** starter template (or similar).
+7.  Name the template **`azure-linux`** (it must match the `CODER_TEMPLATE_NAME` setting in your `.env` file).
+8.  Follow the prompts to paste your Azure Client ID, Client Secret, Tenant ID, and Subscription ID into the Template configuration.
+9.  Click **Publish** to finish the setup!
+
+---
+
+## 🎉 Step 8: Access Your Platform
 
 1.  Open your web browser.
 2.  Navigate to your dashboard:  **`http://YOUR_VPS_IP:3080`**
 3.  Click **Login with GitHub**.
-4.  Once logged in, you can create a new workspace!
-5.  *(Optional but required for Coder configuration)*: To configure Coder templates, access the Coder backend at **`http://YOUR_VPS_IP:7080`**.
+4.  Click **Create Workspace**! Since you set up the template in Step 7, Cloud Code will now seamlessly talk to Coder, which will provision the VM in Azure and give you access to your cloud IDE.
 
 ---
 
