@@ -201,7 +201,7 @@ Before you can spin up workspaces in the dashboard, the Coder backend needs to b
     ```
 5.  In the Coder dashboard, go to **Templates** > **Create Template**.
 6.  Select the **Azure Linux** starter template (or similar).
-7.  Name the template **`azure-linux`** (it must match the `CODER_TEMPLATE_NAME` setting in your `.env` file).
+7.  Give the template a descriptive name (e.g., `azure-linux`). Users will see this name when they create a workspace.
 8.  Follow the prompts to paste your Azure Client ID, Client Secret, Tenant ID, and Subscription ID into the Template configuration.
 9.  Click **Publish** to finish the setup!
 

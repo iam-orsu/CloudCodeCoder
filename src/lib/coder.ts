@@ -10,7 +10,6 @@
 const CODER_URL = process.env.CODER_URL || "http://coder:7080";
 const CODER_API_TOKEN = process.env.CODER_API_TOKEN || "";
 const CODER_ORG_ID = process.env.CODER_ORG_ID || "default";
-const CODER_TEMPLATE_NAME = process.env.CODER_TEMPLATE_NAME || "azure-linux";
 
 export class CoderApiError extends Error {
   public status: number;
@@ -25,11 +24,47 @@ export class CoderApiError extends Error {
   }
 }
 
+// ── Interfaces ──────────────────────────────────────────────
+
+export interface CoderTemplate {
+  id: string;
+  name: string;
+  display_name: string;
+  description: string;
+  icon: string;
+  organization_id: string;
+  active_version_id: string;
+}
+
+export interface CoderRichParameter {
+  name: string;
+  display_name: string;
+  description: string;
+  type: string;
+  mutable: boolean;
+  default_value: string;
+  icon: string;
+  options: Array<{
+    name: string;
+    description: string;
+    value: string;
+    icon: string;
+  }>;
+  required: boolean;
+  ephemeral: boolean;
+}
+
+export interface RichParameterValue {
+  name: string;
+  value: string;
+}
+
 interface CoderWorkspace {
   id: string;
   name: string;
   owner_id: string;
   template_id: string;
+  template_name: string;
   latest_build: {
     id: string;
     status: string;
@@ -51,11 +86,7 @@ interface CoderWorkspace {
   updated_at: string;
 }
 
-interface CoderTemplate {
-  id: string;
-  name: string;
-  organization_id: string;
-}
+// ── Core Fetch ──────────────────────────────────────────────
 
 /**
  * Make an authenticated request to the Coder API
@@ -83,29 +114,48 @@ async function coderFetch(
   return res;
 }
 
+// ── Templates ───────────────────────────────────────────────
+
 /**
- * Get template ID by name
+ * List all available templates in the organization
  */
-async function getTemplateId(): Promise<string> {
+export async function listTemplates(): Promise<CoderTemplate[]> {
   const res = await coderFetch(
-    `/organizations/${CODER_ORG_ID}/templates/${CODER_TEMPLATE_NAME}`
+    `/organizations/${CODER_ORG_ID}/templates`
   );
-
-  if (!res.ok) {
-    throw new CoderApiError(res.status, "Failed to get template", await res.text());
-  }
-
-  const template: CoderTemplate = await res.json();
-  return template.id;
+  return res.json();
 }
 
 /**
- * Create a new workspace for a user
+ * Get a single template by ID
+ */
+export async function getTemplate(templateId: string): Promise<CoderTemplate> {
+  const res = await coderFetch(`/templates/${templateId}`);
+  return res.json();
+}
+
+/**
+ * Get rich parameters for a template version
+ */
+export async function getTemplateRichParameters(
+  templateVersionId: string
+): Promise<CoderRichParameter[]> {
+  const res = await coderFetch(
+    `/templateversions/${templateVersionId}/rich-parameters`
+  );
+  return res.json();
+}
+
+// ── Workspaces ──────────────────────────────────────────────
+
+/**
+ * Create a new workspace for a user with the chosen template and parameters
  */
 export async function createWorkspace(
-  username: string
+  username: string,
+  templateId: string,
+  richParameterValues: RichParameterValue[] = []
 ): Promise<CoderWorkspace> {
-  const templateId = await getTemplateId();
   const workspaceName = `ws-${username.toLowerCase().replace(/[^a-z0-9]/g, "")}-${Date.now().toString(36)}`;
 
   const res = await coderFetch(
@@ -115,16 +165,13 @@ export async function createWorkspace(
       body: JSON.stringify({
         name: workspaceName,
         template_id: templateId,
+        rich_parameter_values: richParameterValues,
         autostart_schedule: null,
         ttl_ms: null,
         automatic_updates: "never",
       }),
     }
   );
-
-  if (!res.ok) {
-    throw new CoderApiError(res.status, "Failed to create workspace", await res.text());
-  }
 
   return res.json();
 }
@@ -136,11 +183,6 @@ export async function getWorkspace(
   workspaceId: string
 ): Promise<CoderWorkspace> {
   const res = await coderFetch(`/workspaces/${workspaceId}`);
-
-  if (!res.ok) {
-    throw new CoderApiError(res.status, "Failed to get workspace", await res.text());
-  }
-
   return res.json();
 }
 
@@ -148,7 +190,7 @@ export async function getWorkspace(
  * Start a stopped workspace
  */
 export async function startWorkspace(workspaceId: string): Promise<void> {
-  const ws = await getWorkspace(workspaceId);
+  await getWorkspace(workspaceId);
 
   const res = await coderFetch(
     `/workspaces/${workspaceId}/builds`,
@@ -211,6 +253,5 @@ export function mapCoderStatus(
  * Get the IDE URL for a running workspace
  */
 export function getIdeUrl(workspace: CoderWorkspace): string | null {
-  // Coder proxies VS Code through its own URL
   return `${CODER_URL}/@me/${workspace.name}`;
 }

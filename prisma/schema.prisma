@@ -30,6 +30,7 @@ model Workspace {
   userId            String
   coderWorkspaceId  String          @unique
   vmInstanceId      String?
+  templateName      String?
   status            WorkspaceStatus @default(PROVISIONING)
   createdAt         DateTime        @default(now())
   lastActiveAt      DateTime        @default(now())

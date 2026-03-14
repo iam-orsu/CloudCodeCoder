@@ -4,7 +4,7 @@ import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { createWorkspace, mapCoderStatus, CoderApiError } from "@/lib/coder";
 
-export async function POST() {
+export async function POST(request: Request) {
   try {
     const session = await getServerSession(authOptions);
 
@@ -30,9 +30,24 @@ export async function POST() {
       );
     }
 
-    // Create workspace via Coder API
+    // Parse the request body for template selection
+    const body = await request.json().catch(() => ({}));
+    const { templateId, richParameterValues = [], templateName } = body;
+
+    if (!templateId) {
+      return NextResponse.json(
+        { error: "templateId is required" },
+        { status: 400 }
+      );
+    }
+
+    // Create workspace via Coder API with user's chosen template + params
     const userName = session.user.name || session.user.email || "user";
-    const coderWorkspace = await createWorkspace(userName);
+    const coderWorkspace = await createWorkspace(
+      userName,
+      templateId,
+      richParameterValues
+    );
 
     // Store in database
     const workspace = await prisma.workspace.create({
@@ -40,11 +55,15 @@ export async function POST() {
         userId,
         coderWorkspaceId: coderWorkspace.id,
         vmInstanceId: null,
+        templateName: templateName || coderWorkspace.template_name || null,
         status: mapCoderStatus(coderWorkspace.latest_build.status),
       },
     });
 
-    return NextResponse.json({ workspace }, { status: 201 });
+    return NextResponse.json(
+      { workspace, coderWorkspaceName: coderWorkspace.name },
+      { status: 201 }
+    );
   } catch (error: any) {
     console.error("Workspace create error:", error.message || error);
     if (error instanceof CoderApiError) {

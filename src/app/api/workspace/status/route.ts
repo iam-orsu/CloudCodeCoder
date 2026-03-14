@@ -45,13 +45,22 @@ export async function GET() {
         dbWorkspace.status = newStatus;
       }
 
-      return NextResponse.json({ 
+      return NextResponse.json({
         workspace: dbWorkspace,
-        coderWorkspaceName: coderWorkspace.name 
+        coderWorkspaceName: coderWorkspace.name,
+        templateName: dbWorkspace.templateName || coderWorkspace.template_name,
       });
-    } catch (coderErr) {
+    } catch (coderErr: any) {
       console.error("Coder status sync error:", coderErr);
-      // Return DB status if Coder is unreachable
+
+      // If Coder says workspace is gone (410) or not found (404),
+      // the admin deleted it — purge the stale record from our DB
+      if (coderErr instanceof CoderApiError && (coderErr.status === 410 || coderErr.status === 404)) {
+        await prisma.workspace.delete({ where: { id: dbWorkspace.id } });
+        return NextResponse.json({ workspace: null });
+      }
+
+      // Return DB status if Coder is just temporarily unreachable
       return NextResponse.json({ workspace: dbWorkspace });
     }
   } catch (error: any) {
