@@ -22,7 +22,7 @@ model User {
   createdAt  DateTime    @default(now())
   workspaces Workspace[]
 
-  @@map("users")
+  @@map("cloudcode_users")
 }
 
 model Workspace {
@@ -37,5 +37,5 @@ model Workspace {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
-  @@map("workspaces")
+  @@map("cloudcode_workspaces")
 }
